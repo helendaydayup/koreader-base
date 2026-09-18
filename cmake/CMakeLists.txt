@@ -250,7 +250,8 @@ endif()
 declare_project(thirdparty/czmq DEPENDS libzmq ${EXCLUDE_FROM_ALL})
 
 # djvulibre
-declare_project(thirdparty/djvulibre DEPENDS libjpeg-turbo EXCLUDE_FROM_ALL)
+# Slim build: DjVu support removed
+# declare_project(thirdparty/djvulibre DEPENDS libjpeg-turbo EXCLUDE_FROM_ALL)
 
 # dkjson
 declare_project(thirdparty/dkjson)
@@ -324,8 +325,8 @@ declare_project(thirdparty/kobo-usbms ${EXCLUDE_FROM_ALL})
 # koreader-lfs
 declare_project(thirdparty/koreader-lfs DEPENDS luajit)
 
-# leptonica
-declare_project(thirdparty/leptonica DEPENDS libpng zlib)
+# Slim build: leptonica removed (no reflow/OCR)
+# declare_project(thirdparty/leptonica DEPENDS libpng zlib)
 
 # libarchive
 set(DEPENDS zlib zstd)
@@ -337,8 +338,8 @@ declare_project(thirdparty/libarchive DEPENDS ${DEPENDS})
 # libjpeg-turbo
 declare_project(thirdparty/libjpeg-turbo)
 
-# libk2pdfopt
-declare_project(thirdparty/libk2pdfopt DEPENDS leptonica tesseract)
+# Slim build: libk2pdfopt removed (no reflow)
+# declare_project(thirdparty/libk2pdfopt DEPENDS leptonica tesseract)
 
 # libpng
 declare_project(thirdparty/libpng DEPENDS zlib EXCLUDE_FROM_ALL)
@@ -491,12 +492,12 @@ else()
 endif()
 declare_project(thirdparty/tar ${EXCLUDE_FROM_ALL})
 
-# tesseract
-set(DEPENDS leptonica)
-if(ANDROID)
-    list(APPEND DEPENDS cpu_features)
-endif()
-declare_project(thirdparty/tesseract DEPENDS ${DEPENDS})
+# Slim build: tesseract removed (no OCR)
+# set(DEPENDS leptonica)
+# if(ANDROID)
+#     list(APPEND DEPENDS cpu_features)
+# endif()
+# declare_project(thirdparty/tesseract DEPENDS ${DEPENDS})
 
 # tree-sitter
 declare_project(thirdparty/tree-sitter EXCLUDE_FROM_ALL)
@@ -718,8 +719,8 @@ foreach(TGT ion mxcfb sunxi)
     ffi_target(kobo ${TGT}_kobo_h.lua ${TGT}_kobo_decl.c ${EXCLUDE_FROM_ALL})
 endforeach()
 
-# leptonica
-ffi_target(leptonica leptonica_h.lua leptonica_cdecl.c ARGS -d lept)
+# Slim build: leptonica/libk2pdfopt ffi targets removed (no reflow/OCR)
+# ffi_target(leptonica leptonica_h.lua leptonica_cdecl.c ARGS -d lept)
 
 # libarchive
 ffi_target(libarchive libarchive_h.lua libarchive_cdecl.c ARGS -d libarchive -r ffi/posix_h)
@@ -727,9 +728,9 @@ ffi_target(libarchive libarchive_h.lua libarchive_cdecl.c ARGS -d libarchive -r 
 # libjpeg-turbo
 ffi_target(libjpeg-turbo turbojpeg_h.lua turbojpeg_decl.c ARGS -d libturbojpeg)
 
-# libk2pdfopt
-get_relative_path(${STAGING_DIR}/include/k2pdfopt ${BASE_DIR} K2PDFOPT_INC)
-ffi_target(libk2pdfopt koptcontext_h.lua koptcontext_cdecl.c ARGS -d lept -I ${K2PDFOPT_INC})
+# Slim build: libk2pdfopt ffi target removed (no reflow)
+# get_relative_path(${STAGING_DIR}/include/k2pdfopt ${BASE_DIR} K2PDFOPT_INC)
+# ffi_target(libk2pdfopt koptcontext_h.lua koptcontext_cdecl.c ARGS -d lept -I ${K2PDFOPT_INC})
 
 # libressl
 ffi_target(libressl crypto_h.lua crypto_decl.c ARGS -d libcrypto)

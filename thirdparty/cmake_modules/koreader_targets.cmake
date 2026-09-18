@@ -101,13 +101,14 @@ declare_koreader_target(
 )
 
 # koreader-djvu
-declare_koreader_target(
-    koreader-djvu TYPE monolibtic
-    DEPENDS blitbuffer djvulibre::djvulibre libk2pdfopt::k2pdfopt luajit::luajit
-    SOURCES djvu.c
-    SUFFIX .so
-    VISIBILITY hidden
-)
+# Slim build: removed (DjVu support dropped, c.f., frontend/document/documentregistry.lua)
+# declare_koreader_target(
+#     koreader-djvu TYPE monolibtic
+#     DEPENDS blitbuffer djvulibre::djvulibre libk2pdfopt::k2pdfopt luajit::luajit
+#     SOURCES djvu.c
+#     SUFFIX .so
+#     VISIBILITY hidden
+# )
 
 # kodeader-input
 set(DEPENDS luajit::luajit)
@@ -250,9 +251,10 @@ if(MONOLIBTIC)
         giflib::gif
         harfbuzz::harfbuzz
         koreader-lfs::koreader-lfs
-        leptonica::leptonica
+        # Slim build: leptonica & libk2pdfopt removed (no reflow/OCR/bbox-detection)
+        # leptonica::leptonica
         libjpeg-turbo::turbojpeg
-        libk2pdfopt::k2pdfopt
+        # libk2pdfopt::k2pdfopt
         libressl::crypto
         libressl::ssl
         libzmq::zmq

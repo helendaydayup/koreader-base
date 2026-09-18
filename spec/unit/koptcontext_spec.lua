@@ -1,7 +1,13 @@
 local ffi = require("ffi")
 local KOPTContext = require("ffi/koptcontext")
 local mupdf = require("ffi/mupdf")
-local k2pdfopt = ffi.loadlib("k2pdfopt", "2")
+-- Slim build: libk2pdfopt (and leptonica) is not shipped, so KOPTContext
+-- cannot reflow/optimize/OCR/analyze pages. Get the (possibly nil) library
+-- handle from the module instead of loading it directly, and report the
+-- reflow-dependent tests as pending in slim builds (they still run in full
+-- builds).
+local k2pdfopt = KOPTContext.k2pdfopt
+local it_k2 = k2pdfopt and it or function(name, fn) pending(name, fn) end
 
 local sample_pdf = "spec/base/unit/data/Alice.pdf"
 local paper_pdf = "spec/base/unit/data/Paper.pdf"
@@ -59,7 +65,7 @@ describe("KOPTContext module", function()
             assert.are.same(kc:getLanguage(), lang)
         end)
     end)
-    it("should copy bmp from other context", function()
+    it_k2("should copy bmp from other context", function()
         local kc1 = KOPTContext.new()
         assert.are.same({kc1.dst.width, kc1.dst.height}, {0, 0})
         local kc2 = KOPTContext.new()
@@ -70,7 +76,7 @@ describe("KOPTContext module", function()
         assert.are_not.same({kc1.dst.width, kc1.dst.height}, {0, 0})
         assert.are.same({kc1.dst.width, kc1.dst.height}, {kc2.dst.width, kc2.dst.height})
     end)
-    it("should be used as reflowing context", function()
+    it_k2("should be used as reflowing context", function()
         local kc = KOPTContext.new()
         local page = sample_pdf_doc:openPage(2)
         page:toBmp(kc.src, 150)
@@ -79,7 +85,7 @@ describe("KOPTContext module", function()
         assert(kc.dst.size_allocated ~= 0)
         assert.are_not.same({kc.dst.width, kc.dst.height}, {0, 0})
     end)
-    it("should get larger reflowed page with larger original page", function()
+    it_k2("should get larger reflowed page with larger original page", function()
         local kc1 = KOPTContext.new()
         local kc2 = KOPTContext.new()
         local page = sample_pdf_doc:openPage(2)
@@ -90,7 +96,7 @@ describe("KOPTContext module", function()
         k2pdfopt.k2pdfopt_reflow_bmp(kc2)
         assert(kc1.dst.height < kc2.dst.height)
     end)
-    it("should get reflowed word boxes", function()
+    it_k2("should get reflowed word boxes", function()
         local kc = KOPTContext.new()
         local page = sample_pdf_doc:openPage(3)
         page:toBmp(kc.src, 150)
@@ -104,7 +110,7 @@ describe("KOPTContext module", function()
             end
         end
     end)
-    it("should get native word boxes", function()
+    it_k2("should get native word boxes", function()
         local kc = KOPTContext.new()
         local page = sample_pdf_doc:openPage(4)
         page:toBmp(kc.src, 150)
@@ -121,13 +127,14 @@ describe("KOPTContext module", function()
     describe("should", function()
         local kc, page
         setup(function()
+            if not k2pdfopt then return end -- slim: nothing to reflow
             kc = KOPTContext.new()
             page = sample_pdf_doc:openPage(5)
             page:toBmp(kc.src, 300)
             page:close()
             k2pdfopt.k2pdfopt_reflow_bmp(kc)
         end)
-        it("transform native postion to reflowed position", function()
+        it_k2("transform native postion to reflowed position", function()
             for j = 0, 800, 100 do
                 for i = 0, 600, 100 do
                     local x, y = kc:nativeToReflowPosTransform(i, j)
@@ -135,7 +142,7 @@ describe("KOPTContext module", function()
                 end
             end
         end)
-        it("transform reflow postion to native position", function()
+        it_k2("transform reflow postion to native position", function()
             for j = 0, 800, 100 do
                 for i = 0, 600, 100 do
                     local x, y = kc:reflowToNativePosTransform(i, j, 0.5, 0.5)
@@ -143,7 +150,7 @@ describe("KOPTContext module", function()
                 end
             end
         end)
-        it("get OCR word from tesseract OCR engine", function()
+        it_k2("get OCR word from tesseract OCR engine", function()
             local word = kc:getTOCRWord("dst", 280, 60, 100, 40, "data/tessdata", "eng", 3, 0, 0, 300)
             assert.are_same(word, "Alice")
             kc:freeOCR()
@@ -152,12 +159,13 @@ describe("KOPTContext module", function()
     describe("should", function()
         local kc, page
         setup(function()
+            if not k2pdfopt then return end -- slim: no leptonica/k2pdfopt
             kc = KOPTContext.new()
             page = paper_pdf_doc:openPage(1)
             page:toBmp(kc.src, 150)
             page:close()
         end)
-        it("get page textblock at any relative location", function()
+        it_k2("get page textblock at any relative location", function()
             kc.page_width, kc.page_height = kc.src.width, kc.src.height
             kc:findPageBlocks()
             local block = kc:getPageBlock(0.6, 0.5)
@@ -178,10 +186,10 @@ describe("KOPTContext module", function()
                 end
             end
         end)
-        it("should export src bitmap to PNG file", function()
+        it_k2("should export src bitmap to PNG file", function()
             kc:exportSrcPNGFile(nil, nil, "/tmp/src.png")
         end)
-        it("should export src bitmap to PNG string", function()
+        it_k2("should export src bitmap to PNG string", function()
             local png = kc:exportSrcPNGString("none")
             assert.truthy(png)
         end)
@@ -189,6 +197,7 @@ describe("KOPTContext module", function()
     describe("should", function()
         local kc, page_6_bmp
         setup(function()
+            if not k2pdfopt then return end -- slim: no leptonica/k2pdfopt
             page_6_bmp = ffi.new('WILLUSBITMAP')
             local page = sample_pdf_doc:openPage(6)
             page:toBmp(page_6_bmp, 150)
@@ -197,15 +206,17 @@ describe("KOPTContext module", function()
         end)
         before_each(function()
             kc = KOPTContext.new()
-            k2pdfopt.bmp_copy(kc.src, page_6_bmp)
+            if k2pdfopt then
+                k2pdfopt.bmp_copy(kc.src, page_6_bmp)
+            end
         end)
-        it("free dst bitmap after reflowing", function()
+        it_k2("free dst bitmap after reflowing", function()
             k2pdfopt.k2pdfopt_reflow_bmp(kc)
             assert(kc.dst.size_allocated ~= 0)
             kc:free()
             assert(kc.dst.size_allocated == 0)
         end)
-        it("convert koptcontext to/from table", function()
+        it_k2("convert koptcontext to/from table", function()
             kc:setLanguage("eng")
             k2pdfopt.k2pdfopt_reflow_bmp(kc)
             local kc_table = KOPTContext.totable(kc)

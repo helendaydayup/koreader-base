@@ -171,7 +171,6 @@ endef
 skeleton: $(strip $(test_data_common))
 
 define test_data_base
-$(OUTPUT_DIR)/data/tessdata/eng.traineddata
 $(OUTPUT_DIR)/fonts/droid/DroidSansMono.ttf
 $(OUTPUT_DIR)/fonts/urw/NimbusRomNo9L-Med.cff
 $(OUTPUT_DIR)/fonts/urw/NimbusRomNo9L-Reg.cff
@@ -180,16 +179,7 @@ endef
 
 test-data: $(strip $(test_data_common) $(test_data_base))
 
-TESSDATA_FILE = $(THIRDPARTY_DIR)/tesseract/build/downloads/eng.traineddata
-TESSDATA_FILE_URL = https://github.com/tesseract-ocr/tessdata/raw/4.1.0/$(notdir $(TESSDATA_FILE))
-TESSDATA_FILE_SHA1 = 007b522901a665bc2037428602d4d527f5ead7ed
-
-$(OUTPUT_DIR)/data/tessdata/eng.traineddata: $(TESSDATA_FILE) | $(OUTPUT_DIR)/data/tessdata
-	$(SYMLINK) $(TESSDATA_FILE) $@
-
-$(TESSDATA_FILE):
-	mkdir -p $(dir $(TESSDATA_FILE))
-	$(call wget_and_validate,$(TESSDATA_FILE),$(TESSDATA_FILE_URL),$(TESSDATA_FILE_SHA1))
+# NOTE: OCR (tesseract eng.traineddata) removed in this slim build.
 
 FONT_SHA1_droid/DroidSansMono.ttf   = 0b75601f8ef8e111babb6ed11de6573f7178ce44
 FONT_SHA1_urw/NimbusRomNo9L-Med.cff = 8c93500267bb1c6444012ba3b7ab807dc24255b4

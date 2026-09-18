@@ -72,8 +72,13 @@ local C = ffi.C
 require("ffi/koptcontext_h")
 require("ffi/leptonica_h")
 local Blitbuffer = require("ffi/blitbuffer")
-local leptonica = ffi.loadlib("leptonica", "6")
-local k2pdfopt = ffi.loadlib("k2pdfopt", "2")
+-- Slim build: leptonica & libk2pdfopt are not shipped (reflow/bbox-detection/
+-- optimization removed in frontend koptinterface). Loading is tolerant so
+-- that KOPTContext can still be used as a plain bitmap/context container.
+local ok_lept, leptonica = pcall(ffi.loadlib, "leptonica", "6")
+if not ok_lept then leptonica = nil end
+local ok_k2, k2pdfopt = pcall(ffi.loadlib, "k2pdfopt", "2")
+if not ok_k2 then k2pdfopt = nil end
 
 local KOPTContext = {
     k2pdfopt = k2pdfopt -- offer the libraries' functions to other users
@@ -87,8 +92,12 @@ local function _gc_ptr(p, destructor)
 end
 
 local function boxDestroy(box)
-    leptonica.boxDestroy(ffi.new('BOX *[1]', box))
-    ffi.gc(box, nil)
+    -- Slim build: leptonica may be absent, in which case no BOX was ever
+    -- created (the pointer is always NULL), so this is a no-op.
+    if leptonica then
+        leptonica.boxDestroy(ffi.new('BOX *[1]', box))
+        ffi.gc(box, nil)
+    end
 end
 
 local function boxCreate(...)
@@ -102,8 +111,11 @@ local function boxGetGeometry(box)
 end
 
 local function boxaDestroy(boxa)
-    leptonica.boxaDestroy(ffi.new('BOXA *[1]', boxa))
-    ffi.gc(boxa, nil)
+    -- Slim build: leptonica may be absent, see note in boxDestroy.
+    if leptonica then
+        leptonica.boxaDestroy(ffi.new('BOXA *[1]', boxa))
+        ffi.gc(boxa, nil)
+    end
 end
 
 local function boxaIterBoxes(boxa, count)
@@ -132,6 +144,7 @@ local function boxaIterBoxGeometries(boxa)
 end
 
 local function boxa_to_table(boxa)
+    if not leptonica then return {} end -- slim: boxa is always NULL
     local boxes = {}
     for box_x, box_y, box_w, box_h in boxaIterBoxGeometries(boxa) do
         table.insert(boxes, {box_x, box_y, box_w, box_h})
@@ -148,8 +161,11 @@ local function boxa_from_table(t)
 end
 
 local function pixDestroy(pix)
-    leptonica.pixDestroy(ffi.new('PIX *[1]', pix))
-    ffi.gc(pix, nil)
+    -- Slim build: leptonica may be absent, see note in boxDestroy.
+    if leptonica then
+        leptonica.pixDestroy(ffi.new('PIX *[1]', pix))
+        ffi.gc(pix, nil)
+    end
 end
 
 local function bitmap2pix(...)
@@ -157,11 +173,15 @@ local function bitmap2pix(...)
 end
 
 local function numaDestroy(numa)
-    leptonica.numaDestroy(ffi.new('NUMA *[1]', numa))
-    ffi.gc(numa, nil)
+    -- Slim build: leptonica may be absent, see note in boxDestroy.
+    if leptonica then
+        leptonica.numaDestroy(ffi.new('NUMA *[1]', numa))
+        ffi.gc(numa, nil)
+    end
 end
 
 local function numa_to_string(numa)
+    if not leptonica then return end -- slim: numa is always NULL
     local count = leptonica.numaGetCount(numa)
     if count == 0 then
         return
@@ -576,12 +596,16 @@ function KOPTContext_mt.__index:free()
     self.rboxa = boxaDestroy(self.rboxa)
     self.nboxa = boxaDestroy(self.nboxa)
     self:setLanguage(nil)
-    -- Already guards against NULL data pointers
-    k2pdfopt.bmp_free(self.src)
-    -- Already guards against NULL data pointers
-    k2pdfopt.bmp_free(self.dst)
-    if self.rectmaps.n ~= 0 then
-        k2pdfopt.wrectmaps_free(self.rectmaps)
+    -- Slim build: k2pdfopt may be absent, in which case the bitmaps were
+    -- never allocated, so there is nothing to free.
+    if k2pdfopt then
+        -- Already guards against NULL data pointers
+        k2pdfopt.bmp_free(self.src)
+        -- Already guards against NULL data pointers
+        k2pdfopt.bmp_free(self.dst)
+        if self.rectmaps.n ~= 0 then
+            k2pdfopt.wrectmaps_free(self.rectmaps)
+        end
     end
 end
 
@@ -655,10 +679,14 @@ function KOPTContext.new()
     --  `src` is the source page image fed into k2pdfopt, and `dst` is unused.
     -- 7. in page drawing context,
     --  `src` is the source page image fed into leptonica, and `dst` is unused.
-    k2pdfopt.bmp_init(kc.src)
-    k2pdfopt.bmp_init(kc.dst)
-    -- only used in words boxing context
-    k2pdfopt.wrectmaps_init(kc.rectmaps)
+    -- Slim build: skip libk2pdfopt initialization when the library is absent.
+    -- (Reflow/optimization/word-boxing paths are removed in the frontend.)
+    if k2pdfopt then
+        k2pdfopt.bmp_init(kc.src)
+        k2pdfopt.bmp_init(kc.dst)
+        -- only used in words boxing context
+        k2pdfopt.wrectmaps_init(kc.rectmaps)
+    end
 
     return kc
 end
@@ -782,7 +810,9 @@ function KOPTContext.fromtable(context)
     kc.nnai = context.nnai and numa_from_string(context.nnai)
     kc:setLanguage(context.language)
 
-    k2pdfopt.bmp_init(kc.src)
+    -- Slim build: bmp_init/wrectmaps_init are no-ops when libk2pdfopt is
+    -- absent (the structs are already zero-initialized).
+    if k2pdfopt then k2pdfopt.bmp_init(kc.src) end
     ffi.copy(kc.src, context.src, ffi.sizeof(kc.src))
     if context.src_data ~= "" then
         kc.src.data = C.malloc(#context.src_data)
@@ -790,7 +820,7 @@ function KOPTContext.fromtable(context)
     else
         kc.src.data = nil
     end
-    k2pdfopt.bmp_init(kc.dst)
+    if k2pdfopt then k2pdfopt.bmp_init(kc.dst) end
     ffi.copy(kc.dst, context.dst, ffi.sizeof(kc.dst))
     if context.dst_data ~= "" then
         kc.dst.data = C.malloc(#context.dst_data)
@@ -798,7 +828,7 @@ function KOPTContext.fromtable(context)
     else
         kc.dst.data = nil
     end
-    k2pdfopt.wrectmaps_init(kc.rectmaps)
+    if k2pdfopt then k2pdfopt.wrectmaps_init(kc.rectmaps) end
     kc.rectmaps.n = context.rectmaps.n
     kc.rectmaps.na = context.rectmaps.n
     if context.rectmaps.wrectmap ~= "" then

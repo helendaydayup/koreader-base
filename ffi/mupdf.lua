@@ -1146,6 +1146,11 @@ end
 
 local function render_for_kopt(bmp, page, scale, bounds, background_cleanup)
     local k2pdfopt = get_k2pdfopt()
+    if not k2pdfopt then
+        -- Slim build: libk2pdfopt (and leptonica) are not shipped, so the
+        -- k2pdfopt reflow/bitmap-conversion API is unavailable.
+        error("libk2pdfopt is not available in this (slim) build")
+    end
 
     local bbox = ffi.new("fz_irect")
     local ctm = ffi.new("fz_matrix")

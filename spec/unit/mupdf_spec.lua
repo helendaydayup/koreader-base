@@ -218,6 +218,11 @@ describe("mupdf module", function()
                     koptcontext:setBBox(page:getUsedBBox())
                 end)
                 it("should get a page picture", function()
+                    -- Slim build: libk2pdfopt is not shipped, so this API is
+                    -- unavailable; report the test as pending instead.
+                    if not require("ffi/koptcontext").k2pdfopt then
+                        pending("libk2pdfopt is not shipped in this (slim) build")
+                    end
                     page:getPagePix(koptcontext)
                 end)
             end)
